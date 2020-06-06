@@ -1,10 +1,12 @@
 use amethyst::{
     assets::{Handle},
-    core::transform::Transform,
+    core::transform::{Transform},
     ecs::prelude::{Entity, Component, DenseVecStorage},
     prelude::*,
     renderer::{SpriteRender, SpriteSheet},
 };
+
+use crate::components::animated::{IdleAnimation, WalkAnimation, FightAnimation};
 
 pub struct Attackable {
     pub health: f32,
@@ -116,7 +118,6 @@ pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handl
         sprite_number: 0,
     };
 
-
     match variant {
         NpcVariant::Normal => {
             world
@@ -133,6 +134,9 @@ pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handl
                 .with(Attackable {
                     health: 100.0,
                 })
+                .with(IdleAnimation::new(0, 20, 0.3))
+                .with(WalkAnimation::new(20, 10, 0.1))
+                .with(FightAnimation::new(30, 10, 0.1))
                 .with(transform)
                 .build();
         },
@@ -151,6 +155,9 @@ pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handl
                 .with(Attackable {
                     health: 50.0,
                 })
+                .with(IdleAnimation::new(0, 20, 0.3))
+                .with(WalkAnimation::new(20, 10, 0.1))
+                .with(FightAnimation::new(30, 10, 0.1))
                 .with(transform)
                 .build();
         }

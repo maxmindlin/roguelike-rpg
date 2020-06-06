@@ -14,18 +14,20 @@ use amethyst::{
     },
     input::{InputBundle, StringBindings},
     utils::application_root_dir,
+    ui::{RenderUi, UiBundle},
 };
 
 mod components;
 mod systems;
 
-use components::npc::{NpcVariant, initialise_npc, Enemy};
+use components::npc::{NpcVariant, initialise_npc};
 use components::tile::{TileVariant, initialise_tile};
 use systems::{
     commands::CommandSystem,
     movement::MovementSystem,
     combat::CombatSystem,
     enemy_targeting::EnemyTargetingSystem,
+    animation::IdleAnimationSystem,
 };
 
 pub const ARENA_HEIGHT: f32 = 320.0;
@@ -116,18 +118,20 @@ impl MainState {
             map: [[TileVariant::Empty; UNIT_HEIGHT]; UNIT_WIDTH],
         }
     }
+
+    fn load_sheet_handles(&mut self, world: &mut World) {
+        self.ceiling_sheet_handle.replace(load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"));
+        self.floor_sheet_handle.replace(load_sprite_sheet(world, "texture/floor.png", "texture/floor.ron"));
+        self.wall_sheet_handle.replace(load_sprite_sheet(world, "texture/walls.png", "texture/walls.ron"));
+        self.npc_sheet_handle.replace(load_sprite_sheet(world, "texture/warrior.png", "texture/warrior.ron"));
+    }
 }
 
 impl SimpleState for MainState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
-        world.register::<Enemy>();
-
-        self.ceiling_sheet_handle.replace(load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"));
-        self.floor_sheet_handle.replace(load_sprite_sheet(world, "texture/floor.png", "texture/floor.ron"));
-        self.wall_sheet_handle.replace(load_sprite_sheet(world, "texture/walls.png", "texture/walls.ron"));
-        self.npc_sheet_handle.replace(load_sprite_sheet(world, "texture/npc.png", "texture/npc.ron"));
+        self.load_sheet_handles(world);
 
         // Theres gotta be a better way than creating a new map 
         // and replacing. Attempted replacing in place but
@@ -181,14 +185,17 @@ fn main() -> amethyst::Result<()> {
                     RenderToWindow::from_config_path(display_config_path)?
                         .with_clear([0.34, 0.36, 0.52, 1.0]),
                 )
-                .with_plugin(RenderFlat2D::default()),
+                .with_plugin(RenderFlat2D::default())
+                .with_plugin(RenderUi::default()),
         )?
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
+        .with_bundle(UiBundle::<StringBindings>::new())?
         .with(CommandSystem::default(), "command_system", &["input_system"])
         .with(MovementSystem, "movement_system", &["command_system"])
         .with(EnemyTargetingSystem, "enemy_targeting_system", &["movement_system"])
-        .with(CombatSystem, "combat_system", &["movement_system", "enemy_targeting_system"]);
+        .with(CombatSystem, "combat_system", &["movement_system", "enemy_targeting_system"])
+        .with(IdleAnimationSystem::default(), "anim_system", &["movement_system", "combat_system", "enemy_targeting_system"]);
 
     let mut game = Application::new(assets_dir, MainState::new(), game_data)?;
     game.run();

@@ -1,14 +1,16 @@
 use crate::components::npc::Npc;
 use crate::components::tile::Tile;
+use crate::components::animated::WalkAnimation;
 
 use amethyst::core::{
     timing::Time,
     Transform,
 };
+use amethyst::renderer::SpriteRender;
 use amethyst::ecs::{Join, Read, System, WriteStorage};
 
 const EQUAL_MARGIN: f32 = 2.0;
-const HIT_BOX_BUFFER_TOP: f32 = 5.0;
+const HIT_BOX_BUFFER_TOP: f32 = 20.0;
 const HIT_BOX_BUFFER_BOT: f32 = 10.0;
 
 pub struct MovementSystem;
@@ -19,13 +21,17 @@ impl<'s> System<'s> for MovementSystem {
         WriteStorage<'s, Npc>,
         Read<'s, Time>,
         WriteStorage<'s, Tile>,
+        WriteStorage<'s, WalkAnimation>,
+        WriteStorage<'s, SpriteRender>,
     );
 
-    fn run(&mut self, (mut transforms, mut npcs, time, tiles): Self::SystemData) {
-        for (transform, npc) in (&mut transforms, &mut npcs).join() {
+    fn run(&mut self, (mut transforms, mut npcs, time, tiles, mut anims, mut renders): Self::SystemData) {
+        for (transform, npc, anim, render) in (&mut transforms, &mut npcs, &mut anims, &mut renders).join() {
             if npc.velocity == [0.0, 0.0] {
                 continue
             }
+            // Animate walking
+            anim.anim.animate(time.delta_seconds(), render);
 
             let mut to_move = true;
 
@@ -62,6 +68,7 @@ impl<'s> System<'s> for MovementSystem {
 
             if point_within(npc.move_coords, [transform.translation().x, transform.translation().y]) {
                 npc.velocity = [0.0, 0.0];
+                anim.anim.reset();
             }
         }
     }

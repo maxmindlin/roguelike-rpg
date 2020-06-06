@@ -1,5 +1,6 @@
 use crate::components::npc::{Npc, CanTarget, Attackable, Attacker};
 use crate::systems::commands::calc_velocity_vec;
+use crate::components::animated::FightAnimation;
 
 use amethyst::core::{
     timing::Time,
@@ -9,6 +10,7 @@ use amethyst::ecs::{
     prelude::Entities,
     Join, Read, System, WriteStorage, ReadStorage
 };
+use amethyst::renderer::SpriteRender;
 
 pub struct CombatSystem;
 
@@ -21,10 +23,39 @@ impl<'s> System<'s> for CombatSystem {
         WriteStorage<'s, Attackable>,
         WriteStorage<'s, Attacker>,
         Read<'s, Time>,
+        WriteStorage<'s, FightAnimation>,
+        WriteStorage<'s, SpriteRender>,
     );
 
-    fn run(&mut self, (entities, mut npcs, mut targeters, transforms, mut attackables, mut attackers, time): Self::SystemData) {        
-        for (npc, attacker, targeter, transform) in (&mut npcs, &mut attackers, &mut targeters, &transforms).join() {
+    fn run(
+        &mut self, 
+        (
+            entities, 
+            mut npcs, 
+            mut targeters, 
+            transforms, 
+            mut attackables, 
+            mut attackers, 
+            time,
+            mut anims,
+            mut renders,
+        ): Self::SystemData
+    ) {        
+        for (
+            npc, 
+            attacker, 
+            targeter, 
+            transform,
+            anim,
+            render,
+        ) in (
+            &mut npcs, 
+            &mut attackers, 
+            &mut targeters, 
+            &transforms,
+            &mut anims,
+            &mut renders,
+        ).join() {
             if let Some(target) = targeter.target {
                 // is the target attackable?
                 if let Some(attackable) = attackables.get_mut(target) {
@@ -39,6 +70,7 @@ impl<'s> System<'s> for CombatSystem {
                         let dist_y = target_y - curr_y;
                         let dist = (dist_x.powf(2.0) + dist_y.powf(2.0)).sqrt();
                         if dist <= attacker.attack_range {
+                            anim.anim.animate(time.delta_seconds(), render);
                             if time.frame_number() % attacker.attack_speed == 0 {
                                 println!("attacks for {} damage", attacker.attack);
                                 attackable.health -= attacker.attack;
@@ -52,6 +84,7 @@ impl<'s> System<'s> for CombatSystem {
                                 }
                             }
                         } else {
+                            anim.anim.reset();
                             // The target is outside our attack range, move towards it
                             // until it is within range.
                             let dest = match target_x > curr_x {
