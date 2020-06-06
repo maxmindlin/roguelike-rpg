@@ -32,7 +32,7 @@ impl<'s> System<'s> for MovementSystem {
             let delta_x = npc.velocity[0] * time.delta_seconds();
             let delta_y = npc.velocity[1] * time.delta_seconds();
             let new_x = transform.translation().x + delta_x;
-            let new_y = transform.translation().y - 15.0 + delta_y;
+            let new_y = transform.translation().y + delta_y;
 
             // Find all the tiles that should potentially be blocking our movement.
             for tile in (&tiles)
@@ -60,7 +60,7 @@ impl<'s> System<'s> for MovementSystem {
                 transform.prepend_translation_y(delta_y);
             }
 
-            if point_within(npc.move_coords, [transform.translation().x, transform.translation().y - 15.0]) {
+            if point_within(npc.move_coords, [transform.translation().x, transform.translation().y]) {
                 npc.velocity = [0.0, 0.0];
             }
         }

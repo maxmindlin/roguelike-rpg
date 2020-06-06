@@ -1,0 +1,70 @@
+use crate::components::npc::{Npc, CanTarget, Attackable, Attacker};
+use crate::systems::commands::calc_velocity_vec;
+
+use amethyst::core::{
+    timing::Time,
+    Transform,
+};
+use amethyst::ecs::{
+    prelude::Entities,
+    Join, Read, System, WriteStorage, ReadStorage
+};
+
+pub struct CombatSystem;
+
+impl<'s> System<'s> for CombatSystem {
+    type SystemData = (
+        Entities<'s>,
+        WriteStorage<'s, Npc>,
+        WriteStorage<'s, CanTarget>,
+        ReadStorage<'s, Transform>,
+        WriteStorage<'s, Attackable>,
+        WriteStorage<'s, Attacker>,
+        Read<'s, Time>,
+    );
+
+    fn run(&mut self, (entities, mut npcs, mut targeters, transforms, mut attackables, mut attackers, time): Self::SystemData) {        
+        for (npc, attacker, targeter, transform) in (&mut npcs, &mut attackers, &mut targeters, &transforms).join() {
+            if let Some(target) = targeter.target {
+                // is the target attackable?
+                if let Some(attackable) = attackables.get_mut(target) {
+                    // We have an attackable target
+                    // Is our attackable target transformable?
+                    if let Some(t_transform) = transforms.get(target) {
+                        let target_x = t_transform.translation().x;
+                        let target_y = t_transform.translation().y;
+                        let curr_x = transform.translation().x;
+                        let curr_y = transform.translation().y;
+                        let dist_x = target_x - curr_x;
+                        let dist_y = target_y - curr_y;
+                        let dist = (dist_x.powf(2.0) + dist_y.powf(2.0)).sqrt();
+                        if dist <= attacker.attack_range {
+                            if time.frame_number() % attacker.attack_speed == 0 {
+                                println!("attacks for {} damage", attacker.attack);
+                                attackable.health -= attacker.attack;
+                                println!("attacked has {} health remaining!", attackable.health);
+                                if attackable.health <= 0.0 {
+                                    println!("attacked has died!");
+                                    targeter.target = None;
+                                    if let Err(e) = entities.delete(target) {
+                                        println!("error deleting entity : {}", e);
+                                    }
+                                }
+                            }
+                        } else {
+                            // The target is outside our attack range, move towards it
+                            // until it is within range.
+                            let dest = match target_x > curr_x {
+                                true => [target_x - (0.75 * attacker.attack_range), target_y],
+                                false => [target_x + (0.75 * attacker.attack_range), target_y],
+                            };
+                            let velocity = calc_velocity_vec([curr_x, curr_y], dest, npc.move_speed);
+                            npc.velocity = velocity;
+                            npc.move_coords = dest;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

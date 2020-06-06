@@ -19,11 +19,13 @@ use amethyst::{
 mod components;
 mod systems;
 
-use components::npc::{NpcVariant, initialise_npc};
+use components::npc::{NpcVariant, initialise_npc, Enemy};
 use components::tile::{TileVariant, initialise_tile};
 use systems::{
     commands::CommandSystem,
     movement::MovementSystem,
+    combat::CombatSystem,
+    enemy_targeting::EnemyTargetingSystem,
 };
 
 pub const ARENA_HEIGHT: f32 = 320.0;
@@ -50,7 +52,7 @@ impl Rect {
     }
 }
 
-// Converts or map tile matrix into rendered entities.
+// Converts the map tile matrix into rendered entities.
 fn initialise_map(
     world: &mut World, 
     map: &Map,
@@ -120,7 +122,7 @@ impl SimpleState for MainState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
-        world.register::<components::tile::Tile>();
+        world.register::<Enemy>();
 
         self.ceiling_sheet_handle.replace(load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"));
         self.floor_sheet_handle.replace(load_sprite_sheet(world, "texture/floor.png", "texture/floor.ron"));
@@ -151,7 +153,10 @@ impl SimpleState for MainState {
             self.floor_sheet_handle.clone().unwrap(), 
             self.wall_sheet_handle.clone().unwrap()
         );
+
+        // TODO make npc spawning smart
         initialise_npc(world, NpcVariant::Normal, self.npc_sheet_handle.clone().unwrap(), [ARENA_WIDTH / 2.0, ARENA_HEIGHT / 2.0]);
+        initialise_npc(world, NpcVariant::Orc, self.npc_sheet_handle.clone().unwrap(), [(ARENA_WIDTH / 2.0) + 150.0, (ARENA_HEIGHT / 2.0) + 50.0]);
         initialise_camera(world);
     }
 }
@@ -181,7 +186,9 @@ fn main() -> amethyst::Result<()> {
         .with_bundle(TransformBundle::new())?
         .with_bundle(InputBundle::<StringBindings>::new())?
         .with(CommandSystem::default(), "command_system", &["input_system"])
-        .with(MovementSystem, "movement_system", &["command_system"]);
+        .with(MovementSystem, "movement_system", &["command_system"])
+        .with(EnemyTargetingSystem, "enemy_targeting_system", &["movement_system"])
+        .with(CombatSystem, "combat_system", &["movement_system", "enemy_targeting_system"]);
 
     let mut game = Application::new(assets_dir, MainState::new(), game_data)?;
     game.run();

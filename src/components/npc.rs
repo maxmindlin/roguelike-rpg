@@ -1,13 +1,64 @@
 use amethyst::{
     assets::{Handle},
     core::transform::Transform,
-    ecs::prelude::{Component, DenseVecStorage},
+    ecs::prelude::{Entity, Component, DenseVecStorage},
     prelude::*,
     renderer::{SpriteRender, SpriteSheet},
 };
 
+pub struct Attackable {
+    pub health: f32,
+}
+
+impl Component for Attackable {
+    type Storage = DenseVecStorage<Self>;
+}
+
+pub struct Attacker {
+    pub attack: f32,
+    pub attack_speed: u64,
+    pub attack_range: f32,
+}
+
+impl Component for Attacker {
+    type Storage = DenseVecStorage<Self>;
+}
+
+#[derive(Default)]
+pub struct CanTarget {
+    pub target: Option<Entity>,
+}
+
+impl Component for CanTarget {
+    type Storage = DenseVecStorage<Self>;
+}
+
+#[derive(Default)]
+pub struct PlayerControlled;
+
+impl Component for PlayerControlled {
+    type Storage = DenseVecStorage<Self>;
+}
+
+pub struct Enemy {
+    pub fov_radius: f32,
+}
+
+impl Default for Enemy {
+    fn default() -> Enemy {
+        Enemy {
+            fov_radius: 100.0,
+        }
+    }
+}
+
+impl Component for Enemy {
+    type Storage = DenseVecStorage<Self>;
+}
+
 pub enum NpcVariant {
-    Normal
+    Normal,
+    Orc
 }
 
 pub struct Npc {
@@ -32,19 +83,28 @@ impl Default for Npc {
     }
 }
 
-// impl Npc {
-//     fn new(opts: NpcOptions) -> Npc {
-//         Npc {
-//             move_coords: [0.0, 0.0],
-//             velocity: [0.0, 0.0],
-//             move_speed: opts.move_speed,
-//         }
-//     }
-// }
-
-// pub struct NpcOptions {
-//     pub move_speed: f32,
-// }
+impl From<&NpcVariant> for Npc {
+    fn from(variant: &NpcVariant) -> Npc {
+        match variant {
+            NpcVariant::Normal => {
+                Npc {
+                    move_coords: [0.0, 0.0],
+                    velocity: [0.0, 0.0],
+                    move_speed: 100.0,
+                    selected: true,
+                }
+            },
+            _ => {
+                Npc {
+                    move_coords: [0.0, 0.0],
+                    velocity: [0.0, 0.0],
+                    move_speed: 50.0,
+                    selected: false,
+                }
+            }
+        }
+    }
+}
 
 pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handle: Handle<SpriteSheet>, coords: [f32; 2]) {
     let mut transform = Transform::default();
@@ -56,10 +116,43 @@ pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handl
         sprite_number: 0,
     };
 
-    world
-        .create_entity()
-        .with(sprite_render)
-        .with(Npc::default())
-        .with(transform)
-        .build();
+
+    match variant {
+        NpcVariant::Normal => {
+            world
+                .create_entity()
+                .with(sprite_render)
+                .with(Npc::from(&variant))
+                .with(PlayerControlled::default())
+                .with(CanTarget::default())
+                .with(Attacker {
+                    attack: 10.0,
+                    attack_speed: 30,
+                    attack_range: 25.0,
+                })
+                .with(Attackable {
+                    health: 100.0,
+                })
+                .with(transform)
+                .build();
+        },
+        _ => {
+            world
+                .create_entity()
+                .with(sprite_render)
+                .with(Npc::from(&variant))
+                .with(Enemy::default())
+                .with(CanTarget::default())
+                .with(Attacker {
+                    attack: 5.0,
+                    attack_speed: 30,
+                    attack_range: 25.0,
+                })
+                .with(Attackable {
+                    health: 50.0,
+                })
+                .with(transform)
+                .build();
+        }
+    }
 }
