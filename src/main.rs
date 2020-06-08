@@ -19,9 +19,7 @@ use amethyst::{
 
 mod components;
 mod systems;
-
-use components::npc::{NpcVariant, initialise_npc};
-use components::tile::{TileVariant, initialise_tile};
+mod resources;
 use systems::{
     commands::CommandSystem,
     movement::MovementSystem,
@@ -29,101 +27,21 @@ use systems::{
     enemy_targeting::EnemyTargetingSystem,
     animation::IdleAnimationSystem,
 };
+use resources::map::MapBuilder;
 
-pub const ARENA_HEIGHT: f32 = 320.0;
-pub const ARENA_WIDTH: f32 = 640.0;
+// These are px dimensions used to
+// calc our tile dimensions.
+// pub const ARENA_HEIGHT: f32 = 320.0;
+// pub const ARENA_WIDTH: f32 = 640.0;
+pub const ARENA_HEIGHT: f32 = 640.0;
+pub const ARENA_WIDTH: f32 = 1280.0;
 pub const TILE_WIDTH: f32 = 16.0;
-pub const UNIT_WIDTH: usize = (ARENA_WIDTH / TILE_WIDTH) as usize;
-pub const UNIT_HEIGHT: usize = (ARENA_HEIGHT / TILE_WIDTH) as usize;
 
-struct Rect {
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
-}
-
-impl Rect {
-    pub fn new(x: usize, y: usize, w: usize, h: usize) -> Self {
-        Rect {
-            x: x,
-            y: y,
-            width: w,
-            height: h,
-        }
-    }
-}
-
-// Converts the map tile matrix into rendered entities.
-fn initialise_map(
-    world: &mut World, 
-    map: &Map,
-    ceiling_sheet_handle: Handle<SpriteSheet>,
-    floor_sheet_handle: Handle<SpriteSheet>,
-    wall_sheet_handle: Handle<SpriteSheet>,
-) {
-    for (x, row) in map.iter().enumerate() {
-        for (y, tile) in row.iter().enumerate() {
-            let x_coords = calc_tile_center(x);
-            let y_coords = calc_tile_center(y);
-            let handler = match tile {
-                TileVariant::Ceiling => ceiling_sheet_handle.clone(),
-                TileVariant::Floor => floor_sheet_handle.clone(),
-                TileVariant::Wall => wall_sheet_handle.clone(),
-                _ => ceiling_sheet_handle.clone(),
-            };
-
-            initialise_tile(world, *tile, handler, [x_coords, y_coords], 0);
-        }
-    }
-}
-
-fn initialise_room(
-    map: &mut Map,
-    rect: Rect, 
-) {
-    let max_y = rect.y + rect.height;
-    let max_x = rect.x + rect.width;
-
-    // Init floor
-    for y in rect.y..=max_y {
-        for x in rect.x..=max_x {
-            map[x][y] = TileVariant::Floor;
-        }
-    }
-
-    // Init walls
-    for x in rect.x..=max_x {
-        map[x][max_y + 1] = TileVariant::Wall;
-    }
-}
-
-type Map = [[TileVariant; UNIT_HEIGHT]; UNIT_WIDTH];
-
-struct MainState {
-    floor_sheet_handle: Option<Handle<SpriteSheet>>,
-    ceiling_sheet_handle: Option<Handle<SpriteSheet>>,
-    wall_sheet_handle: Option<Handle<SpriteSheet>>,
-    npc_sheet_handle: Option<Handle<SpriteSheet>>,
-    map: Map,
-}
+struct MainState;
 
 impl MainState {
     fn new() -> MainState {
-        MainState {
-            floor_sheet_handle: None,
-            ceiling_sheet_handle: None,
-            wall_sheet_handle: None,
-            npc_sheet_handle: None,
-            map: [[TileVariant::Empty; UNIT_HEIGHT]; UNIT_WIDTH],
-        }
-    }
-
-    fn load_sheet_handles(&mut self, world: &mut World) {
-        self.ceiling_sheet_handle.replace(load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"));
-        self.floor_sheet_handle.replace(load_sprite_sheet(world, "texture/floor.png", "texture/floor.ron"));
-        self.wall_sheet_handle.replace(load_sprite_sheet(world, "texture/walls.png", "texture/walls.ron"));
-        self.npc_sheet_handle.replace(load_sprite_sheet(world, "texture/warrior.png", "texture/warrior.ron"));
+        MainState {}
     }
 }
 
@@ -131,42 +49,12 @@ impl SimpleState for MainState {
     fn on_start(&mut self, data: StateData<'_, GameData<'_, '_>>) {
         let world = data.world;
 
-        self.load_sheet_handles(world);
+        let mut builder = MapBuilder::initialize(world);
 
-        // Theres gotta be a better way than creating a new map 
-        // and replacing. Attempted replacing in place but
-        // ran into mutability issues...
-        let mut new_map_base = self.map.clone();
-        for (x, row) in self.map.iter_mut().enumerate() {
-            for (y, _tile) in row.iter_mut().enumerate() {
-                new_map_base[x][y] = TileVariant::Ceiling;
-            }
-        }
-        self.map = new_map_base;
+        builder.build_map(world);
 
-        let room1 = Rect::new(6, 3, 10, 5);
-        let room2 = Rect::new(15, 8, 20, 8);
-
-        initialise_room(&mut self.map, room1);
-        initialise_room(&mut self.map, room2);
-
-        initialise_map(
-            world, 
-            &self.map, 
-            self.ceiling_sheet_handle.clone().unwrap(), 
-            self.floor_sheet_handle.clone().unwrap(), 
-            self.wall_sheet_handle.clone().unwrap()
-        );
-
-        // TODO make npc spawning smart
-        initialise_npc(world, NpcVariant::Normal, self.npc_sheet_handle.clone().unwrap(), [ARENA_WIDTH / 2.0, ARENA_HEIGHT / 2.0]);
-        initialise_npc(world, NpcVariant::Orc, self.npc_sheet_handle.clone().unwrap(), [(ARENA_WIDTH / 2.0) + 150.0, (ARENA_HEIGHT / 2.0) + 50.0]);
-        initialise_camera(world);
+        initialize_camera(world);
     }
-}
-
-fn calc_tile_center(x: usize) -> f32 {
-    x as f32 * TILE_WIDTH + 0.5 * TILE_WIDTH
 }
 
 fn main() -> amethyst::Result<()> {
@@ -203,7 +91,7 @@ fn main() -> amethyst::Result<()> {
     Ok(())
 }
 
-fn initialise_camera(world: &mut World) {
+fn initialize_camera(world: &mut World) {
     let mut transform = Transform::default();
     transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 1.0);
 
@@ -234,4 +122,8 @@ pub fn load_sprite_sheet(world: &mut World, texture_file: &str, ron_file: &str) 
         (),
         &sprite_sheet_store,
     )
+}
+
+fn calc_tile_center(x: usize) -> f32 {
+    (x as f32 * TILE_WIDTH) + (0.5 * TILE_WIDTH)
 }

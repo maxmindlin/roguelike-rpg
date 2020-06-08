@@ -7,7 +7,7 @@ use amethyst::core::{
     Transform,
 };
 use amethyst::renderer::SpriteRender;
-use amethyst::ecs::{Join, Read, System, WriteStorage};
+use amethyst::ecs::{Join, Read, System, WriteStorage, ReadStorage};
 
 const EQUAL_MARGIN: f32 = 2.0;
 const HIT_BOX_BUFFER_TOP: f32 = 20.0;
@@ -20,7 +20,7 @@ impl<'s> System<'s> for MovementSystem {
         WriteStorage<'s, Transform>,
         WriteStorage<'s, Npc>,
         Read<'s, Time>,
-        WriteStorage<'s, Tile>,
+        ReadStorage<'s, Tile>,
         WriteStorage<'s, WalkAnimation>,
         WriteStorage<'s, SpriteRender>,
     );

@@ -82,8 +82,6 @@ impl<'s> System<'s> for CommandSystem {
                             && mouse_world_pos.y < max_y
                         {
                             target = Some(entity);
-                        } else {
-                            target = None;
                         }
                     }
 

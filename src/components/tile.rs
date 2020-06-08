@@ -10,19 +10,71 @@ use amethyst::{
     renderer::{SpriteRender, SpriteSheet},
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum FloorVariant {
+    TLCorner,
+    TRCorner,
+    BLCorner,
+    BRCorner,
+    TLOCorner,
+    TROCorner,
+    BLOCorner,
+    BROCorner,
+    LEdge,
+    REdge,
+    TEdge,
+    BEdge,
+    Empty,
+}
+
+impl FloorVariant {
+    fn to_id(&self) -> usize {
+        match self {
+            FloorVariant::TLCorner => 1,
+            FloorVariant::TRCorner => 2,
+            FloorVariant::BLCorner => 3,
+            FloorVariant::BRCorner => 4,
+            FloorVariant::LEdge => 6,
+            FloorVariant::TEdge => 8,
+            FloorVariant::REdge => 15,
+            FloorVariant::BEdge => 13,
+            FloorVariant::TLOCorner => 49,
+            FloorVariant::TROCorner => 50,
+            FloorVariant::BLOCorner => 51,
+            FloorVariant::BROCorner => 52,
+            _ => 0,
+        }
+    }
+}
+
+impl Default for FloorVariant {
+    fn default() -> FloorVariant {
+        FloorVariant::Empty
+    }
+}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum TileVariant {
     Ceiling,
-    Floor,
+    Floor(FloorVariant),
     Wall,
     Empty,
+}
+
+impl TileVariant {
+    pub fn tile_dimensions(&self) -> [f32; 2] {
+        match self {
+            TileVariant::Wall => [16.0, 32.0],
+            _ => [16.0, 16.0],
+        }
+    }
 }
 
 impl fmt::Display for TileVariant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TileVariant::Ceiling => write!(f, "{}", "ceiling"),
-            TileVariant::Floor => write!(f, "{}", "floor"),
+            TileVariant::Floor(_) => write!(f, "{}", "floor"),
             TileVariant::Wall => write!(f, "{}", "wall"),
             TileVariant::Empty => write!(f, "{}", "empty"),
         }
@@ -57,7 +109,7 @@ impl Component for Tile {
     type Storage = DenseVecStorage<Self>;
 }
 
-pub fn initialise_tile(world: &mut World, variant: TileVariant, sprite_sheet_handle: Handle<SpriteSheet>, center: [f32; 2], id: usize) {
+pub fn initialize_tile(world: &mut World, variant: TileVariant, sprite_sheet_handle: Handle<SpriteSheet>, center: [f32; 2]) {
     let z = match variant {
         TileVariant::Ceiling => 0.0,
         TileVariant::Wall => 0.5,
@@ -67,13 +119,18 @@ pub fn initialise_tile(world: &mut World, variant: TileVariant, sprite_sheet_han
     let mut transform = Transform::default();
     transform.set_translation_xyz(center[0], center[1], z);
 
+    let id = match variant {
+        TileVariant::Floor(fvariant) => fvariant.to_id(),
+        _ => 0
+    };
+
     let sprite_render = SpriteRender {
         sprite_sheet: sprite_sheet_handle,
         sprite_number: id,
     };
 
     let blocking = match variant {
-        TileVariant::Floor => false,
+        TileVariant::Floor(_) => false,
         _ => true,
     };
 

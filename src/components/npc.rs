@@ -108,7 +108,7 @@ impl From<&NpcVariant> for Npc {
     }
 }
 
-pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handle: Handle<SpriteSheet>, coords: [f32; 2]) {
+pub fn initialize_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handle: Handle<SpriteSheet>, coords: [f32; 2]) {
     let mut transform = Transform::default();
     transform.set_translation_xyz(coords[0], coords[1], 0.5);
 
@@ -127,12 +127,12 @@ pub fn initialise_npc(world: &mut World, variant: NpcVariant, sprite_sheet_handl
                 .with(PlayerControlled::default())
                 .with(CanTarget::default())
                 .with(Attacker {
-                    attack: 10.0,
+                    attack: 20.0,
                     attack_speed: 30,
                     attack_range: 25.0,
                 })
                 .with(Attackable {
-                    health: 100.0,
+                    health: 150.0,
                 })
                 .with(IdleAnimation::new(0, 20, 0.3))
                 .with(WalkAnimation::new(20, 10, 0.1))
