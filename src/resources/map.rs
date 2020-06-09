@@ -13,6 +13,7 @@ use crate::{ARENA_WIDTH, ARENA_HEIGHT, TILE_WIDTH, calc_tile_center, load_sprite
 
 use crate::components::npc::{NpcVariant, initialize_npc};
 use crate::components::tile::{TileVariant, FloorVariant, initialize_tile};
+use crate::components::scenary::initialize_campfire;
 
 // Convert px dimensions to tile dimensions.
 pub const UNIT_WIDTH: usize = (ARENA_WIDTH / TILE_WIDTH) as usize;
@@ -34,11 +35,13 @@ pub const MAX_ROOM_Y: usize = UNIT_HEIGHT - MIN_ROOM_Y - 4;
 type Map = [[TileVariant; UNIT_HEIGHT]; UNIT_WIDTH];
 
 pub struct MapBuilder {
+    auras_sheet_handle: Handle<SpriteSheet>,
     floor_sheet_handle: Handle<SpriteSheet>,
     ceiling_sheet_handle: Handle<SpriteSheet>,
     wall_sheet_handle: Handle<SpriteSheet>,
     npc_sheet_handle: Handle<SpriteSheet>,
     orc_mage_sheet_handle: Handle<SpriteSheet>,
+    scenary_sheet_handle: Handle<SpriteSheet>,
     map: Map,
     rooms: Vec<Room>,
 }
@@ -54,11 +57,13 @@ impl MapBuilder {
         }
 
         MapBuilder {
+            auras_sheet_handle: load_sprite_sheet(world, "texture/auras.png", "texture/auras.ron"),
             floor_sheet_handle: load_sprite_sheet(world, "texture/floor.png", "texture/floor.ron"),
             ceiling_sheet_handle: load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"),
             wall_sheet_handle: load_sprite_sheet(world, "texture/walls.png", "texture/walls.ron"),
             npc_sheet_handle: load_sprite_sheet(world, "texture/warrior.png", "texture/warrior.ron"),
-            orc_mage_sheet_handle: load_sprite_sheet(world, "texture/orc_mage.png", "texture/orc_mage.ron"),
+            orc_mage_sheet_handle: load_sprite_sheet(world, "texture/orc.png", "texture/orc.ron"),
+            scenary_sheet_handle: load_sprite_sheet(world, "texture/campfire.png", "texture/campfire.ron"),
             map: map,
             rooms: vec![],
         }
@@ -81,17 +86,50 @@ impl MapBuilder {
     fn define_rooms(&mut self) {
         // Define a safe npc spawn point that wont have
         // enemies spawn in it
-        let spawn = Room {
-            dimensions: Rect::new(MIN_ROOM_X, MIN_ROOM_Y, 15, 10),
-            safe: true,
-            enemy_spawn_chance: 0,
-        };
+        let spawn_room_size = [15, 10];
+        let potential_spawns = [
+            [MIN_ROOM_X, MIN_ROOM_Y],
+            [MIN_ROOM_X, (MAX_ROOM_Y - spawn_room_size[1])],
+            [(MAX_ROOM_X - spawn_room_size[0]), MIN_ROOM_Y],
+            [(MAX_ROOM_X - spawn_room_size[0]), (MAX_ROOM_Y - spawn_room_size[1])],
+        ];
 
-        self.rooms.push(spawn);
+        let mut potential_spawn_rooms: Vec<Room> = vec![];
 
-        for _ in 0..MAX_ROOMS {
+        for s in potential_spawns.iter() {
+            potential_spawn_rooms.push(Room {
+                dimensions: Rect::new(s[0], s[1], spawn_room_size[0], spawn_room_size[1]),
+                safe: true,
+                enemy_spawn_chance: 0,
+            });
+        }
+
+        let index = rand::thread_rng().gen_range(0, potential_spawn_rooms.len());
+        let determined_spawn = potential_spawn_rooms[index];
+        self.rooms.push(determined_spawn);
+
+        for _ in 0..(MAX_ROOMS - 1) {
             self.rooms.push(Room::random());
         }
+
+        // Define boss room
+        let mut max_distance = (0, Room::default());
+        for room in potential_spawn_rooms.iter() {
+            let mut clone = room.clone();
+            clone.safe = false;
+            clone.enemy_spawn_chance = 10;
+            let spawn_center = determined_spawn.center();
+            let r_center = room.center();
+            let distance_x = spawn_center[0] - r_center[0];
+            let distance_y = spawn_center[1] - r_center[1];
+            let distance = distance_x.pow(2) + distance_y.pow(2);
+            if distance > max_distance.0 {
+                max_distance = (distance, clone);
+            }
+        }
+
+
+        self.rooms.push(max_distance.1);
     }
 
     fn carve_rooms(&mut self) {
@@ -210,14 +248,42 @@ impl MapBuilder {
             let coords = [calc_tile_center(center[0]), calc_tile_center(center[1])];
             // Safe (non-enemy) spawn room?
             if r.safe {
-                initialize_npc(world, NpcVariant::Normal, self.npc_sheet_handle.clone(), coords);
+                initialize_npc(world, NpcVariant::Normal, self.npc_sheet_handle.clone(), self.auras_sheet_handle.clone(), coords);
             } else {
                 let roll = rand::thread_rng().gen_range(0, 10);
                 if roll < r.enemy_spawn_chance {
-                    initialize_npc(world, NpcVariant::Orc, self.orc_mage_sheet_handle.clone(), coords);
+                    // initialize_npc(world, NpcVariant::Orc, self.orc_mage_sheet_handle.clone(), self.auras_sheet_handle.clone(), coords);
+                    // let c = [coords[0] + 5.0, coords[1] + 5.0];
+                    // initialize_campfire(world, self.scenary_sheet_handle.clone(), c);
+                    self.spawn_enemy_group(world, coords);
                 }
             }
         }
+    }
+
+    fn spawn_enemy_group(&self, world: &mut World, center: [f32; 2]) {
+        // Spawn a random (with limit) of enemies around a scenary object,
+        // centered at `center`.
+        let group_radius = 25.0;
+        initialize_campfire(world, self.scenary_sheet_handle.clone(), center);
+        self.spawn_npc(world, NpcVariant::Orc, [center[0], center[1] + group_radius]);
+        if rand::random() {
+            self.spawn_npc(world, NpcVariant::Orc, [center[0] + group_radius, center[1]]);
+        }
+
+        if rand::random() {
+            self.spawn_npc(world, NpcVariant::Orc, [center[0] - group_radius, center[1]]);
+        }
+    }
+
+    fn spawn_npc(&self, world: &mut World, variant: NpcVariant, coords: [f32; 2]) {
+        initialize_npc(
+            world,
+            variant,
+            self.orc_mage_sheet_handle.clone(),
+            self.auras_sheet_handle.clone(),
+            coords,
+        );
     }
 }
 
@@ -237,7 +303,7 @@ fn initialize_room(
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 struct Rect {
     x: usize,
     y: usize,
@@ -256,7 +322,7 @@ impl Rect {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Default, Clone, Copy)]
 struct Room {
     dimensions: Rect,
     safe: bool,

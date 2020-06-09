@@ -1,7 +1,7 @@
 #![enable(implicit_some)]
 Grid((
     texture_width: 320,
-    texture_height: 160,
-    columns: 10,
-    rows: 5,
+    texture_height: 64,
+    columns: 5,
+    rows: 1,
 ))

@@ -3,6 +3,7 @@ use crate::components::tile::Tile;
 use crate::components::animated::WalkAnimation;
 
 use amethyst::core::{
+    math::Vector3,
     timing::Time,
     Transform,
 };
@@ -64,6 +65,13 @@ impl<'s> System<'s> for MovementSystem {
             if to_move {
                 transform.prepend_translation_x(delta_x);
                 transform.prepend_translation_y(delta_y);
+                // make sure that sprite is facing correctly
+                let scale_x = transform.scale()[0];
+                if delta_x < 0.0 && scale_x > 0.0
+                    ||  delta_x > 0.0 && scale_x < 0.0 
+                {
+                    transform.set_scale(Vector3::new(scale_x * -1.0, 1.0, 1.0));
+                }
             }
 
             if point_within(npc.move_coords, [transform.translation().x, transform.translation().y]) {

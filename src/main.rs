@@ -26,6 +26,7 @@ use systems::{
     combat::CombatSystem,
     enemy_targeting::EnemyTargetingSystem,
     animation::IdleAnimationSystem,
+    layering::LayeringSystem,
 };
 use resources::map::MapBuilder;
 
@@ -83,7 +84,8 @@ fn main() -> amethyst::Result<()> {
         .with(MovementSystem, "movement_system", &["command_system"])
         .with(EnemyTargetingSystem, "enemy_targeting_system", &["movement_system"])
         .with(CombatSystem, "combat_system", &["movement_system", "enemy_targeting_system"])
-        .with(IdleAnimationSystem::default(), "anim_system", &["movement_system", "combat_system", "enemy_targeting_system"]);
+        .with(IdleAnimationSystem::default(), "anim_system", &["movement_system", "combat_system", "enemy_targeting_system"])
+        .with(LayeringSystem, "layering_system", &[]);
 
     let mut game = Application::new(assets_dir, MainState::new(), game_data)?;
     game.run();
@@ -93,7 +95,7 @@ fn main() -> amethyst::Result<()> {
 
 fn initialize_camera(world: &mut World) {
     let mut transform = Transform::default();
-    transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 1.0);
+    transform.set_translation_xyz(ARENA_WIDTH * 0.5, ARENA_HEIGHT * 0.5, 100.0);
 
     world
         .create_entity()

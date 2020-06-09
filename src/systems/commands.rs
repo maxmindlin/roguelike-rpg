@@ -18,7 +18,7 @@ use amethyst::renderer::{
 use amethyst::ecs::prelude::Entities;
 use amethyst::window::ScreenDimensions;
 
-use crate::components::npc::{Npc, CanTarget};
+use crate::components::npc::{Npc, CanTarget, PlayerControlled};
 
 #[derive(SystemDesc, Default)]
 pub struct CommandSystem {
@@ -36,10 +36,11 @@ impl<'s> System<'s> for CommandSystem {
         Read<'s, ActiveCamera>,
         ReadExpect<'s, ScreenDimensions>,
         ReadStorage<'s, SpriteRender>,
-        Read<'s, AssetStorage<SpriteSheet>>
+        Read<'s, AssetStorage<SpriteSheet>>,
+        ReadStorage<'s, PlayerControlled>,
     );
 
-    fn run(&mut self, (entities, transforms, mut npcs, mut targeters, cameras, input, active_camera, screen_dimensions, sprites, sprite_sheets): Self::SystemData) {
+    fn run(&mut self, (entities, transforms, mut npcs, mut targeters, cameras, input, active_camera, screen_dimensions, sprites, sprite_sheets, pcs): Self::SystemData) {
         if let Some(mouse_pos) = input.mouse_position() {
             let mut camera_join = (&cameras, &transforms).join();
             if let Some((camera, camera_transform)) = active_camera
@@ -65,7 +66,8 @@ impl<'s> System<'s> for CommandSystem {
                     self.mouse_was_down = true;
                 } else if self.mouse_was_down {
                     let mut target: Option<Entity> = None;
-                    for (sprite, _, entity, transform) in (&sprites, &npcs, &entities, &transforms).join() {
+                    let mut should_move = true;
+                    for (sprite, _, entity, transform) in (&sprites, &mut npcs, &entities, &transforms).join() {
                         let sprite_sheet = sprite_sheets.get(&sprite.sprite_sheet).unwrap();
                         let sprite = &sprite_sheet.sprites[sprite.sprite_number];
                         let (min_x, max_x, min_y, max_y) = {
@@ -81,7 +83,12 @@ impl<'s> System<'s> for CommandSystem {
                             && mouse_world_pos.y > min_y
                             && mouse_world_pos.y < max_y
                         {
-                            target = Some(entity);
+                            if let Some(_) = pcs.get(entity) {
+                                should_move = false;
+                            } else {
+                                target = Some(entity);
+                            }
+                            
                         }
                     }
 
@@ -92,16 +99,18 @@ impl<'s> System<'s> for CommandSystem {
                                 targeter.target = target;
                             },
                             None => {
-                                let modified_y = mouse_world_pos.y + 15.0;
-                                let velocity = calc_velocity_vec(
-                                    [transform.translation().x, transform.translation().y],
-                                    [mouse_world_pos.x, modified_y],
-                                    npc.move_speed,
-                                );
+                                if should_move {
+                                    let modified_y = mouse_world_pos.y + 15.0;
+                                    let velocity = calc_velocity_vec(
+                                        [transform.translation().x, transform.translation().y],
+                                        [mouse_world_pos.x, modified_y],
+                                        npc.move_speed,
+                                    );
 
-                                targeter.target = None;
-                                npc.velocity = velocity;
-                                npc.move_coords = [mouse_world_pos.x, modified_y];
+                                    targeter.target = None;
+                                    npc.velocity = velocity;
+                                    npc.move_coords = [mouse_world_pos.x, modified_y];
+                                }
                             }
                         }
 

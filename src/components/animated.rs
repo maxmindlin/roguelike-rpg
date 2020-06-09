@@ -8,12 +8,14 @@ pub struct Animation {
     pub current_frame: usize,
     pub time_per_frame: f32,
     pub elapsed_time: f32,
+    pub offset: usize,
 }
 
 impl Animation {
     pub fn animate(&mut self, elapsed_time: f32, render: &mut SpriteRender) {
         self.elapsed_time += elapsed_time;
-        let frame_count = (self.elapsed_time / self.time_per_frame) as usize % self.frames;
+        let elapsed_frames = (self.elapsed_time / self.time_per_frame) as usize + self.offset;
+        let frame_count =  elapsed_frames % self.frames;
         if frame_count != self.current_frame {
             self.current_frame = frame_count;
             render.sprite_number = frame_count + self.start_sprite_index;
@@ -35,14 +37,15 @@ pub struct IdleAnimation {
 }
 
 impl IdleAnimation {
-    pub fn new(start_sprite_index: usize, frames: usize, time_per_frame: f32) -> IdleAnimation {
+    pub fn new(start_sprite_index: usize, frames: usize, time_per_frame: f32, offset: usize) -> IdleAnimation {
         IdleAnimation {
             anim: Animation {
                 start_sprite_index: start_sprite_index,
                 frames: frames,
-                current_frame: 0,
+                current_frame: offset,
                 time_per_frame: time_per_frame,
                 elapsed_time: 0.0,
+                offset: offset,
             }
         }
     }
@@ -65,6 +68,7 @@ impl WalkAnimation {
                 current_frame: 0,
                 time_per_frame: time_per_frame,
                 elapsed_time: 0.0,
+                offset: 0,
             }
         }
     }
@@ -91,6 +95,7 @@ impl FightAnimation {
                 current_frame: 0,
                 time_per_frame: time_per_frame,
                 elapsed_time: 0.0,
+                offset: 0,
             }
         }
     }
