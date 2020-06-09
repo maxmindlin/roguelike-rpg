@@ -11,6 +11,12 @@ use rand::Rng;
 use crate::components::animated::{IdleAnimation, WalkAnimation, FightAnimation};
 use crate::components::Layered;
 
+pub struct HealthBar;
+
+impl Component for HealthBar {
+    type Storage = DenseVecStorage<Self>;
+}
+
 pub struct SelectAura;
 
 impl Component for SelectAura {
@@ -19,6 +25,7 @@ impl Component for SelectAura {
 
 pub struct Attackable {
     pub health: f32,
+    pub total_health: f32,
 }
 
 impl Component for Attackable {
@@ -123,6 +130,7 @@ pub fn initialize_npc(
     variant: NpcVariant, 
     sprite_sheet_handle: Handle<SpriteSheet>, 
     aura_handle: Handle<SpriteSheet>,
+    health_bar_handle: Handle<SpriteSheet>,
     coords: [f32; 2]
 ) {
     let mut transform = Transform::default();
@@ -152,6 +160,7 @@ pub fn initialize_npc(
                 })
                 .with(Attackable {
                     health: 150.0,
+                    total_health: 150.0,
                 })
                 .with(IdleAnimation::new(0, 20, 0.3, frame_start))
                 .with(WalkAnimation::new(20, 10, 0.1))
@@ -185,6 +194,7 @@ pub fn initialize_npc(
                 })
                 .with(Attackable {
                     health: 50.0,
+                    total_health: 50.0,
                 })
                 .with(IdleAnimation::new(sprite_index + 0, 20, 0.3, frame_start))
                 .with(WalkAnimation::new(sprite_index + 20, 10, 0.1))
@@ -211,4 +221,31 @@ pub fn initialize_npc(
             .with(Parent { entity })
             .build();
     }
+
+    let health_bar_outer_sprite = SpriteRender {
+        sprite_sheet: health_bar_handle.clone(),
+        sprite_number: 0
+    };
+
+    let mut health_bar_transform = Transform::default();
+    health_bar_transform.prepend_translation_y(20.0);
+
+    world.create_entity()
+        .with(health_bar_outer_sprite)
+        .with(health_bar_transform.clone())
+        .with(Parent { entity })
+        .build();
+
+    let health_bar_inner_sprite = SpriteRender {
+        sprite_sheet: health_bar_handle,
+        sprite_number: 1
+    };
+    health_bar_transform.prepend_translation_z(0.01);
+
+    world.create_entity()
+        .with(HealthBar)
+        .with(health_bar_inner_sprite)
+        .with(health_bar_transform)
+        .with(Parent { entity })
+        .build();
 }

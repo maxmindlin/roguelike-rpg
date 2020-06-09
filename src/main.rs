@@ -23,7 +23,7 @@ mod resources;
 use systems::{
     commands::CommandSystem,
     movement::MovementSystem,
-    combat::CombatSystem,
+    combat::{CombatSystem, HealthBarSystem},
     enemy_targeting::EnemyTargetingSystem,
     animation::IdleAnimationSystem,
     layering::LayeringSystem,
@@ -85,7 +85,8 @@ fn main() -> amethyst::Result<()> {
         .with(EnemyTargetingSystem, "enemy_targeting_system", &["movement_system"])
         .with(CombatSystem, "combat_system", &["movement_system", "enemy_targeting_system"])
         .with(IdleAnimationSystem::default(), "anim_system", &["movement_system", "combat_system", "enemy_targeting_system"])
-        .with(LayeringSystem, "layering_system", &[]);
+        .with(LayeringSystem, "layering_system", &[])
+        .with(HealthBarSystem, "healthbar_system", &[]);
 
     let mut game = Application::new(assets_dir, MainState::new(), game_data)?;
     game.run();

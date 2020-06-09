@@ -40,8 +40,9 @@ pub struct MapBuilder {
     ceiling_sheet_handle: Handle<SpriteSheet>,
     wall_sheet_handle: Handle<SpriteSheet>,
     npc_sheet_handle: Handle<SpriteSheet>,
-    orc_mage_sheet_handle: Handle<SpriteSheet>,
+    orc_sheet_handle: Handle<SpriteSheet>,
     scenary_sheet_handle: Handle<SpriteSheet>,
+    health_bar_handle: Handle<SpriteSheet>,
     map: Map,
     rooms: Vec<Room>,
 }
@@ -62,8 +63,9 @@ impl MapBuilder {
             ceiling_sheet_handle: load_sprite_sheet(world, "texture/ceiling.png", "texture/ceiling.ron"),
             wall_sheet_handle: load_sprite_sheet(world, "texture/walls.png", "texture/walls.ron"),
             npc_sheet_handle: load_sprite_sheet(world, "texture/warrior.png", "texture/warrior.ron"),
-            orc_mage_sheet_handle: load_sprite_sheet(world, "texture/orc.png", "texture/orc.ron"),
+            orc_sheet_handle: load_sprite_sheet(world, "texture/orc.png", "texture/orc.ron"),
             scenary_sheet_handle: load_sprite_sheet(world, "texture/campfire.png", "texture/campfire.ron"),
+            health_bar_handle: load_sprite_sheet(world, "texture/healthbar.png", "texture/healthbar.ron"),
             map: map,
             rooms: vec![],
         }
@@ -248,13 +250,10 @@ impl MapBuilder {
             let coords = [calc_tile_center(center[0]), calc_tile_center(center[1])];
             // Safe (non-enemy) spawn room?
             if r.safe {
-                initialize_npc(world, NpcVariant::Normal, self.npc_sheet_handle.clone(), self.auras_sheet_handle.clone(), coords);
+                self.spawn_npc(world, NpcVariant::Normal, coords);
             } else {
                 let roll = rand::thread_rng().gen_range(0, 10);
                 if roll < r.enemy_spawn_chance {
-                    // initialize_npc(world, NpcVariant::Orc, self.orc_mage_sheet_handle.clone(), self.auras_sheet_handle.clone(), coords);
-                    // let c = [coords[0] + 5.0, coords[1] + 5.0];
-                    // initialize_campfire(world, self.scenary_sheet_handle.clone(), c);
                     self.spawn_enemy_group(world, coords);
                 }
             }
@@ -277,11 +276,17 @@ impl MapBuilder {
     }
 
     fn spawn_npc(&self, world: &mut World, variant: NpcVariant, coords: [f32; 2]) {
+        let handle = match variant {
+            NpcVariant::Normal => self.npc_sheet_handle.clone(),
+            NpcVariant::Orc => self.orc_sheet_handle.clone(),
+        };
+
         initialize_npc(
             world,
             variant,
-            self.orc_mage_sheet_handle.clone(),
+            handle,
             self.auras_sheet_handle.clone(),
+            self.health_bar_handle.clone(),
             coords,
         );
     }

@@ -1,16 +1,43 @@
-use crate::components::npc::{Npc, CanTarget, Attackable, Attacker};
+use crate::components::npc::{Npc, CanTarget, Attackable, Attacker, HealthBar};
 use crate::systems::commands::calc_velocity_vec;
 use crate::components::animated::FightAnimation;
 
 use amethyst::core::{
+    math::Vector3,
     timing::Time,
     Transform,
+    Parent,
 };
 use amethyst::ecs::{
     prelude::Entities,
     Join, Read, System, WriteStorage, ReadStorage
 };
 use amethyst::renderer::SpriteRender;
+
+pub struct HealthBarSystem;
+
+impl<'s> System<'s> for HealthBarSystem {
+    type SystemData = (
+        Entities<'s>,
+        WriteStorage<'s, Transform>,
+        ReadStorage<'s, Parent>,
+        WriteStorage<'s, HealthBar>,
+        ReadStorage<'s, Attackable>,
+    );
+
+    fn run(&mut self, (entities, mut transforms, parents, healthbars, attackables): Self::SystemData) {
+        for (entity, transform, _) in (&entities, &mut transforms, &healthbars).join() {
+            // Does the healthbar entity have a parent?
+            if let Some(parent_entity) = parents.get(entity).map(|parent| parent.entity) {
+                // is this parent entity attackable?
+                if let Some(attackable) = attackables.get(parent_entity) {
+                    let health_ratio = attackable.health / attackable.total_health;
+                    transform.set_scale(Vector3::new(health_ratio, 1.0, 1.0));
+                }
+            }
+        }
+    }
+}
 
 pub struct CombatSystem;
 
