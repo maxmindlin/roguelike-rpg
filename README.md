@@ -11,17 +11,17 @@ While learning the amethyst framework I saw many examples of single controlled c
 To run the game, run the following command, which defaults to the `metal` graphics backend:
 
 ```bash
-cargo run
+cargo run --release
 ```
 
 Windows and Linux users may explicitly choose `"vulkan"` with the following command:
 
 ```bash
-cargo run --no-default-features --features "vulkan"
+cargo run --release --no-default-features --features "vulkan"
 ```
 
 Mac OS X users may explicitly choose `"metal"` with the following command:
 
 ```bash
-cargo run --no-default-features --features "metal"
+cargo run --release --no-default-features --features "metal"
 ```
