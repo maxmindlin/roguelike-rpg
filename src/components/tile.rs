@@ -1,4 +1,5 @@
 use std::fmt;
+use rand::Rng;
 
 use crate::TILE_WIDTH;
 
@@ -9,6 +10,21 @@ use amethyst::{
     prelude::*,
     renderer::{SpriteRender, SpriteSheet},
 };
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum WallDecoration {
+    RedFlag1,
+    BlackFlag1,
+}
+
+impl WallDecoration {
+    fn to_id(&self) -> usize {
+        match self {
+            WallDecoration::RedFlag1 => 9,
+            WallDecoration::BlackFlag1 => 13,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum FloorVariant {
@@ -42,7 +58,11 @@ impl FloorVariant {
             FloorVariant::TROCorner => 50,
             FloorVariant::BLOCorner => 51,
             FloorVariant::BROCorner => 52,
-            _ => 0,
+            _ => {
+                let empty_variants = [0, 0, 61, 62];
+                let n = rand::thread_rng().gen_range(0, empty_variants.len());
+                empty_variants[n]
+            },
         }
     }
 }
@@ -57,15 +77,39 @@ impl Default for FloorVariant {
 pub enum TileVariant {
     Ceiling,
     Floor(FloorVariant),
-    Wall,
+    Wall(Option<WallDecoration>),
     Empty,
 }
 
 impl TileVariant {
     pub fn tile_dimensions(&self) -> [f32; 2] {
         match self {
-            TileVariant::Wall => [16.0, 32.0],
+            TileVariant::Wall(_) => [16.0, 32.0],
             _ => [16.0, 16.0],
+        }
+    }
+
+    pub fn is_boundary(&self) -> bool {
+        match self {
+            TileVariant::Ceiling | TileVariant::Wall(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn to_id(&self) -> usize {
+        match self {
+            TileVariant::Ceiling => 0,
+            TileVariant::Floor(var) => var.to_id(),
+            TileVariant::Wall(_) => {
+                let n = rand::thread_rng().gen_range(0, 15);
+                match n {
+                    6 | 7 => 6,
+                    4 | 5 => 2,
+                    3 => 3,
+                    _ => 0, 
+                }
+            }
+            _ => 0,
         }
     }
 }
@@ -75,7 +119,7 @@ impl fmt::Display for TileVariant {
         match self {
             TileVariant::Ceiling => write!(f, "{}", "ceiling"),
             TileVariant::Floor(_) => write!(f, "{}", "floor"),
-            TileVariant::Wall => write!(f, "{}", "wall"),
+            TileVariant::Wall(_) => write!(f, "{}", "wall"),
             TileVariant::Empty => write!(f, "{}", "empty"),
         }
     }
@@ -112,20 +156,17 @@ impl Component for Tile {
 pub fn initialize_tile(world: &mut World, variant: TileVariant, sprite_sheet_handle: Handle<SpriteSheet>, center: [f32; 2]) {
     let z = match variant {
         TileVariant::Ceiling => 0.0,
-        TileVariant::Wall => 0.5,
+        TileVariant::Wall(_) => 0.5,
         _ => 0.25,
     };
 
     let mut transform = Transform::default();
     transform.set_translation_xyz(center[0], center[1], z);
 
-    let id = match variant {
-        TileVariant::Floor(fvariant) => fvariant.to_id(),
-        _ => 0
-    };
+    let id = variant.to_id();
 
     let sprite_render = SpriteRender {
-        sprite_sheet: sprite_sheet_handle,
+        sprite_sheet: sprite_sheet_handle.clone(),
         sprite_number: id,
     };
 
@@ -143,6 +184,22 @@ pub fn initialize_tile(world: &mut World, variant: TileVariant, sprite_sheet_han
     world.create_entity()
         .with(sprite_render)
         .with(Tile { variant, blocking, hit_box, center })
-        .with(transform)
+        .with(transform.clone())
         .build();
+
+    match variant {
+        TileVariant::Wall(Some(dec)) => {
+            let id = dec.to_id();
+            let dec_sprite_render = SpriteRender {
+                sprite_sheet: sprite_sheet_handle,
+                sprite_number:id,
+            };
+            transform.set_translation_z(z + 0.1);
+            world.create_entity()
+                .with(dec_sprite_render)
+                .with(transform)
+                .build();
+        },
+        _ => {}
+    }
 }

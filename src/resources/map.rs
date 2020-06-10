@@ -12,7 +12,7 @@ use std::cmp;
 use crate::{ARENA_WIDTH, ARENA_HEIGHT, TILE_WIDTH, calc_tile_center, load_sprite_sheet};
 
 use crate::components::npc::{NpcVariant, initialize_npc};
-use crate::components::tile::{TileVariant, FloorVariant, initialize_tile};
+use crate::components::tile::{TileVariant, FloorVariant, initialize_tile, WallDecoration};
 use crate::components::scenary::initialize_campfire;
 
 // Convert px dimensions to tile dimensions.
@@ -161,7 +161,8 @@ impl MapBuilder {
                 if *tile == TileVariant::Floor(FloorVariant::default()) 
                     && self.map[x][y + 1] == TileVariant::Ceiling
                 {
-                    walled_map[x][y + 1] = TileVariant::Wall;
+                    walled_map[x][y + 1] = TileVariant::Wall(None);
+                    walled_map[x][y + 2] = TileVariant::Ceiling;
                     walled_map[x][y + 3] = TileVariant::Ceiling;
                 }
             }
@@ -181,37 +182,96 @@ impl MapBuilder {
                 match tile {
                     // 
                     // Beware of impending spaghetti...
+                    // Theres definitely a better way to do this
                     // 
                     TileVariant::Floor(_) => {
-                        if self.map [x - 1][y] == TileVariant::Ceiling || self.map [x - 1][y] == TileVariant::Wall {
-                            if self.map [x][y + 1] == TileVariant::Wall || self.map [x][y + 1] == TileVariant::Ceiling {
+
+                        if self.map[x - 1][y].is_boundary() {
+
+                            if self.map[x][y + 1].is_boundary() {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::TLCorner);
-                            } else if self.map [x][y - 1] == TileVariant::Ceiling {
+
+                            } else if self.map[x][y - 1].is_boundary() {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::BLCorner);
+
                             } else {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::LEdge);
+
                             }
-                        } else if self.map [x + 1][y] == TileVariant::Ceiling || self.map [x + 1][y] == TileVariant::Wall {
-                            if self.map [x][y + 1] == TileVariant::Wall || self.map [x][y + 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x + 1][y].is_boundary() {
+
+                            if self.map[x][y + 1].is_boundary() {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::TRCorner);
-                            } else if self.map [x][y - 1] == TileVariant::Ceiling || self.map [x][y - 1] == TileVariant::Wall {
+
+                            } else if self.map[x][y - 1].is_boundary() {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::BRCorner);
+
                             } else {
+
                                 detailed_map[x][y] = TileVariant::Floor(FloorVariant::REdge);
+
                             }
-                        } else if self.map [x][y + 1] == TileVariant::Wall || self.map [x][y + 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x][y + 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::TEdge);
-                        } else if self.map [x][y - 1] == TileVariant::Wall || self.map [x][y - 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x][y - 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::BEdge);
-                        } else if self.map [x - 1][y + 1] == TileVariant::Wall || self.map [x - 1][y + 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x - 1][y + 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::TLOCorner);
-                        } else if self.map [x + 1][y - 1] == TileVariant::Wall || self.map [x + 1][y - 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x + 1][y - 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::BROCorner);
-                        } else if self.map [x + 1][y + 1] == TileVariant::Wall || self.map [x + 1][y + 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x + 1][y + 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::TROCorner);
-                        } else if self.map [x - 1][y - 1] == TileVariant::Wall || self.map [x - 1][y - 1] == TileVariant::Ceiling {
+
+                        } else if self.map[x - 1][y - 1].is_boundary() {
+
                             detailed_map[x][y] = TileVariant::Floor(FloorVariant::BLOCorner);
+
                         }
+                    },
+                    TileVariant::Wall(None) => {
+                        // Check to see if theres any decorations nearby, we dont want to render decorations
+                        // close to each other
+                        let mut too_close = false;
+                        for w in (cmp::max(MIN_ROOM_X, x - 5))..=(cmp::min(MAX_ROOM_X, x + 5)) {
+                            match detailed_map[w][y] {
+                                TileVariant::Wall(Some(_)) => {
+                                    too_close = true;
+                                    break;
+                                },
+                                _ => {}
+                            }
+                        }
+
+                        if too_close {
+                            detailed_map[x][y] = TileVariant::Wall(None);
+                            continue;
+                        }
+
+                        // Have some % chance to spawn a wall detail. Otherwise, leave it blank.
+                        let n = rand::thread_rng().gen_range(0, 20);
+                        let detail = match n {
+                            9 => Some(WallDecoration::BlackFlag1),
+                            8 => Some(WallDecoration::RedFlag1),
+                            _ => None
+                        };
+
+                        detailed_map[x][y] = TileVariant::Wall(detail);
                     },
                     _ => {}
                 }
@@ -231,7 +291,7 @@ impl MapBuilder {
                 let handler = match tile {
                     TileVariant::Ceiling => self.ceiling_sheet_handle.clone(),
                     TileVariant::Floor(_) => self.floor_sheet_handle.clone(),
-                    TileVariant::Wall => self.wall_sheet_handle.clone(),
+                    TileVariant::Wall(_) => self.wall_sheet_handle.clone(),
                     _ => self.ceiling_sheet_handle.clone(),
                 };
     

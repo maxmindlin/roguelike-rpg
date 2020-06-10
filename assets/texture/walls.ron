@@ -1,18 +1,7 @@
-List((
-    texture_width: 144,
+#![enable(implicit_some)]
+Grid((
+    texture_width: 336,
     texture_height: 32,
-    sprites: [
-        (
-            x: 0,
-            y: 0,
-            width: 16,
-            height: 32,
-        ),
-        (
-            x: 16,
-            y: 0,
-            width: 16,
-            height: 32,
-        ),
-    ],
+    columns: 21,
+    rows: 1,
 ))
